@@ -1,0 +1,39 @@
+workflows:
+  appetize-simulator:
+    name: Test and build for Appetize
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+    scripts:
+      - name: Unpack the Xcode project
+        script: |
+          set -euo pipefail
+          mkdir -p "$CM_BUILD_DIR/project" "$CM_BUILD_DIR/build"
+          unzip -q "$CM_BUILD_DIR/AI-Tag-Remover-CLOUD-READY.zip" -d "$CM_BUILD_DIR/project"
+          test -d "$CM_BUILD_DIR/project/AITagRemover.xcodeproj"
+      - name: Run tests and build the simulator app
+        script: |
+          set -euo pipefail
+          xcodebuild test \
+            -project "$CM_BUILD_DIR/project/AITagRemover.xcodeproj" \
+            -scheme "AITagRemover" \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -configuration Debug \
+            -derivedDataPath "$CM_BUILD_DIR/build/DerivedData" \
+            -resultBundlePath "$CM_BUILD_DIR/build/TestResults.xcresult" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Package the app for Appetize
+        script: |
+          set -euo pipefail
+          APP_PATH="$CM_BUILD_DIR/build/DerivedData/Build/Products/Debug-iphonesimulator/AITagRemover.app"
+          OUTPUT_PATH="$CM_BUILD_DIR/build/AI-Tag-Remover-Appetize.zip"
+          test -d "$APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$OUTPUT_PATH"
+          test -f "$OUTPUT_PATH"
+    artifacts:
+      - build/AI-Tag-Remover-Appetize.zip
+      - build/TestResults.xcresult
